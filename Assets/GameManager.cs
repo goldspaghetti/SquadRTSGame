@@ -9,6 +9,7 @@ public class GameManager : MonoBehaviour
     public Unit[] playerUnits = new Unit[1];
     public GameObject playerUnitPrefab;
     public GameObject enemyUnitPrefab;
+    public bool puased = false;
     void Awake()
     {
         initEnemyUnits();
@@ -37,5 +38,8 @@ public class GameManager : MonoBehaviour
     void Update()
     {
         
+    }
+    public static float getAngle(Vector2 point1, Vector2 point2){
+        return 0;
     }
 }

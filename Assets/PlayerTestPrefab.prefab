@@ -51,8 +51,11 @@ MonoBehaviour:
   speed: 5
   team: 0
   unitSize: 1
+  visionRadius: 70
   currRotationDeg: 0
   rotationSpeed: 360
+  fireRate: 0.5
+  fireRateTimer: 0
   gunAngle: 0
   hitpoints: 5
   gunRotateAngle: 40
@@ -78,7 +81,7 @@ MonoBehaviour:
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 1
   m_LightVolumeOpacity: 0
-  m_ApplyToSortingLayers: 00000000
+  m_ApplyToSortingLayers: 3bd284e900000000
   m_LightCookieSprite: {fileID: 0}
   m_UseNormalMap: 0
   m_LightOrder: 0
@@ -87,8 +90,8 @@ MonoBehaviour:
   m_ShadowVolumeIntensity: 0
   m_PointLightInnerAngle: 360
   m_PointLightOuterAngle: 360
-  m_PointLightInnerRadius: 5
-  m_PointLightOuterRadius: 5
+  m_PointLightInnerRadius: 15
+  m_PointLightOuterRadius: 15
   m_PointLightDistance: 3
   m_PointLightQuality: 1
   m_ShapeLightParametricSides: 5
