@@ -59,7 +59,7 @@ public class InputManager : MonoBehaviour
                         else{
                             Debug.Log("not null");
                         }
-                        if (playerUnit.boxCollider.OverlapPoint(new Vector2(mousePoint.x, mousePoint.y))){
+                        if (playerUnit.circleCollider2D.OverlapPoint(new Vector2(mousePoint.x, mousePoint.y))){
                             Debug.Log("found currUnit");
                             currUnit = playerUnit;
                             break;
@@ -67,7 +67,7 @@ public class InputManager : MonoBehaviour
                     }
                     break;
                 case KeyCode.Mouse1:
-                    currInputCommand = new TrackUnitMove(mousePoint, pathSquare, lineGameObject);
+                    currInputCommand = new TrackUnitMove(mousePoint, pathSquare, lineGameObject, currUnit);
                     break;
                 case KeyCode.A:
                     Debug.Log("AAA");
@@ -81,7 +81,23 @@ public class InputManager : MonoBehaviour
                     break;
                 case KeyCode.E:
                     if (currUnit != null){
-
+                        //currUnit.currMoveCommand.getMousePressLocation(mousePoint);
+                        if (currUnit.currMoveCommand != null){
+                            RotateFixed rf = currUnit.currMoveCommand.getMousePressLocation(mousePoint);
+                            //GameObject.Instantiate(pathSquare).transform.setPos;
+                        if (rf != null){
+                            //GameObject.Instantiate(pathSquare).transform.position = rf.
+                            currInputCommand = new TrackMoveAngleFocus(currUnit.currMoveCommand.getMousePressLocation(mousePoint), this);
+                            GameObject.Instantiate(pathSquare).transform.position = rf.pointIntercepted;
+                            Debug.Log(rf.pointIntercepted);
+                            GameObject.Instantiate(pathSquare).transform.position = mousePoint;
+                            GameObject.Instantiate(pathSquare).transform.position = rf.moveNode.normalizedVector * (rf.percentageToNextNode* rf.moveNode.length) + rf.moveNode.startNode;
+                        }
+                        else{
+                            Debug.Log("rf null!");
+                        }
+                        //currInputCommand = new TrackMoveAngleFocus(currUnit.currMoveCommand.getMousePressLocation(mousePoint), this);
+                        }
                     }
                     break;
             }
@@ -135,28 +151,40 @@ public class LookTowardsPos : InputCommand{
     {
         Debug.Log("target rotation:");
         Debug.Log(this.rotateDeg);
-        currUnit.concurrentCommands.Add(new RotateToTarget(this.rotateDeg));
+        //currUnit.concurrentCommands.Add(new RotateToTarget(this.rotateDeg));
+        //Debug.Log()
+        currUnit.currRotateCommand = new RotateToTarget(this.rotateDeg);
     }
 }
 public class TrackUnitMove : InputCommand{
-    static float moveDistances = 0.5f;
-    public Queue<Vector2> moveCoors = new Queue<Vector2>();
+    static float moveDistances = 1.0f;
+    //eh whatever
+
+    public Queue<MoveNode> moveCoors = new Queue<MoveNode>();
     Vector2 pastMoveCoor;
+    MoveNode currMoveNode;
     public GameObject lineGameObject;
     public MoveCommandIcon moveCommandIcon;
     //LineRenderer currPath;
     public ArrayList pathSquares = new ArrayList();
     //public ArrayList rotateFixedArray = new ArrayList();
     GameObject pathSquare;
-    public TrackUnitMove(Vector2 mousePoint, GameObject pathSquare, GameObject lineGameObject){
+
+    public TrackUnitMove(Vector2 mousePoint, GameObject pathSquare, GameObject lineGameObject, Unit unit){
         pastMoveCoor = mousePoint;
         this.pathSquare = pathSquare;
         this.lineGameObject = lineGameObject;
-        this.moveCommandIcon = new MoveCommandIcon(this.lineGameObject);
+        currMoveNode = new MoveNode(unit.unitPos, mousePoint, lineGameObject);
+        moveCoors.Enqueue(currMoveNode);
+        //this.moveCommandIcon = new MoveCommandIcon(this.lineGameObject);
+    }
+    public void getUnitCollision(){
+        
     }
     public override void commandEnd(Unit currUnit)
     {
-        currUnit.commandQueue.Enqueue(new MoveCommand(this.moveCoors));
+        //currUnit.commandQueue.Enqueue(new MoveCommand(this.moveCoors));
+        currUnit.currMoveCommand = new MoveCommand(this.moveCoors);
         foreach(GameObject currPathSquare in pathSquares){
             GameObject.Destroy(currPathSquare);
         }
@@ -179,8 +207,9 @@ public class TrackUnitMove : InputCommand{
         Vector2 lastPoint = pastMoveCoor;
         for (int i = 1; i <= points; i++){
             Vector2 currPoint = new Vector2(pastMoveCoor.x + xDis * i, pastMoveCoor.y + yDis * i);
-            moveCommandIcon.addNode(lastPoint, currPoint);
-            moveCoors.Enqueue(currPoint);
+            //moveCommandIcon.addNode(lastPoint, currPoint);
+            currMoveNode = new MoveNode(lastPoint, currPoint, lineGameObject);
+            moveCoors.Enqueue(currMoveNode);
             GameObject newPath = GameObject.Instantiate(pathSquare);
             newPath.transform.position = currPoint;
             pathSquares.Add(newPath);
@@ -193,38 +222,51 @@ public class TrackUnitMove : InputCommand{
     }
 }
 public class TrackMoveAngleFocus : InputCommand{
-    private int node;
+    private MoveNode moveNode;
+    private Vector2 pointIntercepted;
     private float percentageToNextNode;
     private float rotateDeg;
-    private Vector2 startingPoint;
     private InputManager inputManager;
-    public TrackMoveAngleFocus(InputManager inputManager, Vector2 pointIntercepted, int node){
+    private RotateFixed rotateFixed;
+    public TrackMoveAngleFocus(RotateFixed rotateFixed, InputManager inputManager){
+        this.rotateFixed = rotateFixed;
+        this.moveNode = rotateFixed.moveNode;
+        this.pointIntercepted = rotateFixed.pointIntercepted;
+        this.percentageToNextNode = rotateFixed.percentageToNextNode;
         this.inputManager = inputManager;
-        this.node = node;
-
-
+        Debug.Log("percentage to next node:");
+        Debug.Log(percentageToNextNode);
+    }
+    public TrackMoveAngleFocus(InputManager inputManager, Vector2 pointIntercepted, MoveNode moveNode){
+        this.inputManager = inputManager;
+        this.moveNode = moveNode;
+        this.pointIntercepted = pointIntercepted;
     }
     public override void commandEnd(Unit currUnit)
     {
         if (currUnit != null){
+            rotateFixed.moveNode.addRotateFixed(rotateFixed);
             //currUnit.currMoveCommand.addRotateFixed();
         }
     }
     public override bool handleInput(KeyCode keyCode, bool getKeyDown)
     {
         if (keyCode == KeyCode.Mouse0 && getKeyDown == false){
-            if ((startingPoint.y - inputManager.mousePoint.y) == 0){
+            if ((pointIntercepted.y - inputManager.mousePoint.y) == 0){
                 this.rotateDeg = 0;
             }
             else{
-                this.rotateDeg = Mathf.Rad2Deg * Mathf.Asin((inputManager.mousePoint.y - startingPoint.y)/Vector2.Distance(inputManager.mousePoint, startingPoint));
+                this.rotateDeg = Mathf.Rad2Deg * Mathf.Asin((inputManager.mousePoint.y - pointIntercepted.y)/Vector2.Distance(inputManager.mousePoint, pointIntercepted));
             }
             this.rotateDeg -= 90;
-            if ((inputManager.mousePoint.x - inputManager.currUnit.unitPos.x) < 0){
+            if ((inputManager.mousePoint.x - pointIntercepted.x) < 0){
                 this.rotateDeg *= -1;
             }
-            RotateFixed currRotateFixed = new RotateFixed(this.node, this.percentageToNextNode, new RotateToTarget(this.rotateDeg));
-            
+            //RotateFixed currRotateFixed = new RotateFixed(this.node, this.percentageToNextNode, new RotateToTarget(this.rotateDeg));
+            Debug.Log("rotateDeg:");
+            Debug.Log(rotateDeg);
+            this.rotateFixed.rotateCommand = new RotateToTarget(this.rotateDeg);
+
             return true;
         }
         return false;
@@ -263,7 +305,6 @@ public class MoveCommandIcon{
             if (currBoxCollider.OverlapPoint(mouseDownLocation)){
                 int currNode = i;
                 int nextNode = i+1;
-                float percentageToNextNode;
                 return true;
             }
         }

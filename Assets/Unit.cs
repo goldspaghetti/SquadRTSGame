@@ -35,7 +35,7 @@ public class Unit : MonoBehaviour
     protected Vector2 gunOffset = new Vector2(0.5f, 0.75f);
     public float gunRotateAngle = 40;
     public GameObject gunfirePrefab;
-    public BoxCollider2D boxCollider;
+    public CircleCollider2D circleCollider2D;
     //public ArrayList enemiesSeen = new ArrayList();
     private bool[] enemiesSeen;
     //maybe have currTarget the index?
@@ -64,7 +64,7 @@ public class Unit : MonoBehaviour
         enemiesSeen = new bool[gameManager.enemyUnits.Length];
     }
     void Start(){
-        this.boxCollider = gameObject.GetComponent<BoxCollider2D>();
+        this.circleCollider2D = gameObject.GetComponent<CircleCollider2D>();
         //Light2D unitVisionLight = gameObject.GetComponent<Light2D>();
         //Debug.Log(unitVisionLight);
     }
@@ -281,42 +281,42 @@ public class RotateToTarget : Command{
             //MAKE THE TURNING THE MOST EFFICIENT LATER!
             if (unit.currRotationDeg < targetRotationDeg){
                 if ((unit.currRotationDeg + rotationAmount) < targetRotationDeg){
-                    Debug.Log("movingR");
+                    /*Debug.Log("movingR");
                     Debug.Log(targetRotationDeg);
                     Debug.Log(rotationAmount);
                     Debug.Log(unit.currRotationDeg);
-                    Debug.Log(unit.currRotationDeg + rotationAmount);
+                    Debug.Log(unit.currRotationDeg + rotationAmount);*/
                     unit.currRotationDeg += rotationAmount;
 
                 }
                 else{
                     unit.currRotationDeg = targetRotationDeg;
                     unit.gameObject.transform.eulerAngles = new Vector3(0, 0, unit.currRotationDeg);
-                    Debug.Log("we're there!");
+                    /*Debug.Log("we're there!");
                     Debug.Log(targetRotationDeg);
                     Debug.Log(rotationAmount);
                     Debug.Log(unit.currRotationDeg);
-                    Debug.Log(unit.currRotationDeg + rotationAmount);
+                    Debug.Log(unit.currRotationDeg + rotationAmount);*/
                     return true;
                 }
             }
             else if (unit.currRotationDeg > targetRotationDeg){
                 if ((unit.currRotationDeg - rotationAmount) > targetRotationDeg){
                     unit.currRotationDeg -= rotationAmount;
-                    Debug.Log("movingL");
+                    /*Debug.Log("movingL");
                     Debug.Log(targetRotationDeg);
                     Debug.Log(rotationAmount);
                     Debug.Log(unit.currRotationDeg);
-                    Debug.Log(unit.currRotationDeg + rotationAmount);
+                    Debug.Log(unit.currRotationDeg + rotationAmount);*/
                 }
                 else{
                     unit.currRotationDeg = targetRotationDeg;
                     unit.gameObject.transform.eulerAngles = new Vector3(0, 0, unit.currRotationDeg);
-                    Debug.Log("we're there");
+                    /*Debug.Log("we're there");
                     Debug.Log(targetRotationDeg);
                     Debug.Log(rotationAmount);
                     Debug.Log(unit.currRotationDeg);
-                    Debug.Log(unit.currRotationDeg + rotationAmount);
+                    Debug.Log(unit.currRotationDeg + rotationAmount);*/
                     return true;
                 }
             }
@@ -671,12 +671,12 @@ public class EngageEnemyNoGun : Command{
     }
 }
 public class MoveCommand : Command{
-    public Queue<Vector2> moveCoors;
+    public Queue<MoveNode> moveCoors;
     private float currentNodeProgress = 0;
-    Vector2 currMoveCoor;
+    MoveNode currMoveCoor;
     private ArrayList rotateFixedArray = new ArrayList();
     public MoveCommandIcon moveCommandIcon;
-    public MoveCommand(Queue<Vector2> moveCoordinates){
+    public MoveCommand(Queue<MoveNode> moveCoordinates){
         this.moveCoors = moveCoordinates;
         this.currMoveCoor = moveCoors.Dequeue();
     }
@@ -693,21 +693,26 @@ public class MoveCommand : Command{
         float currMoveAmount = unit.speed * Time.deltaTime;
         //Debug.Log(unit.speed);
         while (currMoveAmount > 0){
-            float distanceToMove = Vector2.Distance(currMoveCoor, unit.unitPos);
+            //float distanceToMove = Vector2.Distance(currMoveCoor.startNode, unit.unitPos);
+            float distanceToMove = Vector2.Distance(currMoveCoor.endNode, unit.unitPos);
             if (currMoveAmount > distanceToMove){
-                unit.unitPos = currMoveCoor;
+                //unit.unitPos = currMoveCoor.startNode;
+                unit.unitPos = currMoveCoor.endNode;
                 unit.transform.position = unit.unitPos;
                 currMoveAmount -= distanceToMove;
+                currMoveCoor.updateMoveProgress(distanceToMove, unit);
                 if (moveCoors.Count == 0){
                     return true;
                 }
                 currMoveCoor = moveCoors.Dequeue();
             }
             else{
-
-                Vector2 newUnitPos = new Vector2(unit.unitPos.x + currMoveAmount/distanceToMove*(currMoveCoor.x - unit.unitPos.x), unit.unitPos.y + currMoveAmount/distanceToMove*(currMoveCoor.y - unit.unitPos.y));
+                //Vector2 newUnitPos = new Vector2(unit.unitPos.x + currMoveAmount/distanceToMove*(currMoveCoor.startNode.x - unit.unitPos.x), unit.unitPos.y + currMoveAmount/distanceToMove*(currMoveCoor.startNode.y - unit.unitPos.y));
+                Vector2 newUnitPos = new Vector2(unit.unitPos.x + currMoveAmount/distanceToMove*(currMoveCoor.endNode.x - unit.unitPos.x), unit.unitPos.y + currMoveAmount/distanceToMove*(currMoveCoor.endNode.y - unit.unitPos.y));
+                currMoveCoor.updateMoveProgress(currMoveAmount, unit);
                 currMoveAmount = 0;
                 unit.unitPos = newUnitPos;
+                //unit.unitPos.updateMoveProgress()
                 unit.transform.position = unit.unitPos;
             }
         }
@@ -761,11 +766,125 @@ public class MoveCommand : Command{
             }
         }
     }
+    public RotateFixed getMousePressLocation(Vector2 mousePress){
+        foreach(MoveNode moveNode in moveCoors.ToArray()){
+            RotateFixed currRF = moveNode.getMouseDown(mousePress);
+            if (currRF != null){
+                return currRF;
+            }
+        }
+        return null;
+    }
+    
+}
+public class MoveNode{
+    public Vector2 startNode;
+    public Vector2 endNode;
+    public GameObject lineGameObject;
+    public ArrayList rotateCommands;
+    
+    //MAYBE
+    public Vector2 normalizedVector;
+    public float currProgress = 0;
+    public float length;
+    public float angle;
+    public MoveNode(Vector2 startNode, Vector2 endNode, GameObject lineGameObject){
+        this.startNode = startNode;
+        this.endNode = endNode;
+        //this.lineGameObject = GameObject.Instantiate(lineGameObject);
+        //this.lineGameObject.transform.position = new Vector3();
+        rotateCommands = new ArrayList();
+        this.normalizedVector = (endNode - startNode).normalized;
+        this.length = Vector2.Distance(startNode, endNode);
+
+        this.lineGameObject = GameObject.Instantiate(lineGameObject);
+        this.lineGameObject.transform.localScale = new Vector3(this.length, 0.1f, 0);
+        float angleToTarget = Mathf.Rad2Deg * Mathf.Asin((endNode.y - startNode.y)/Vector2.Distance(endNode, startNode));
+        if ((endNode.x - startNode.x) < 0){
+            angleToTarget *= -1;
+        }
+        this.lineGameObject.transform.position = new Vector3(startNode.x + length/2*normalizedVector.x, startNode.y + length/2*normalizedVector.y, 0);
+        this.lineGameObject.transform.eulerAngles = new Vector3(0, 0, angleToTarget);
+    }
+    public void addRotateFixed(RotateFixed rotateFixed){
+        Debug.Log("adding rotateFixed");
+        if (rotateCommands.Count == 0){
+            rotateCommands.Insert(0, rotateFixed);
+        }
+        else{
+            int leftMost = 0;
+            int rightMost = rotateCommands.Count - 1;
+            int currIndex = (int)(rightMost + leftMost)/2;
+            while (leftMost != rightMost){
+                currIndex = (int)(rightMost + leftMost)/2;
+                RotateFixed currRotateFixed = (RotateFixed)rotateCommands[currIndex];
+                if (rotateFixed.percentageToNextNode > currRotateFixed.percentageToNextNode){
+                    leftMost = currIndex + 1;
+                }
+                else if (rotateFixed.percentageToNextNode == currRotateFixed.percentageToNextNode){
+                    break;
+                }
+                else{
+                    rightMost = currIndex - 1;
+                }
+            }
+            rotateCommands.Insert(leftMost, rotateFixed);
+        }
+    }
+    public void updateMoveProgress(float distanceMoved, Unit unit){
+        //UPDATE lineGameObject
+        //Try getting new rotateCommand
+        this.currProgress += distanceMoved;
+        float percentageProgress = currProgress / this.length;
+        //get rotateCommands until less than percentageProgress
+        //I MAY HAVE ACCIDENTLY STUMBLED UPON SOMETHING GREAT
+        //this.lineGameObject.transform.position = new Vector3(startNode.x+((percentageProgress)*length)*normalizedVector.x +(1-percentageProgress)/2*normalizedVector.x, startNode.y+ ((percentageProgress)*length).y/2*normalizedVector.y, 0);
+        this.lineGameObject.transform.position = new Vector3(startNode.x+((percentageProgress)*length)*normalizedVector.x +(1-percentageProgress)*length/2*normalizedVector.x, startNode.y+ ((percentageProgress)*length)*normalizedVector.y + ((1-percentageProgress)*length)*normalizedVector.y/2, 0);
+        this.lineGameObject.transform.localScale = new Vector3((1-percentageProgress)*length, 0.1f, 0);
+        foreach(RotateFixed rotateFixed in rotateCommands.ToArray()){
+            if (rotateFixed.percentageToNextNode <= percentageProgress){
+                Debug.Log("NEW ROTATE COMMAND!");
+                unit.currRotateCommand = rotateFixed.rotateCommand;
+                rotateCommands.Remove(rotateFixed);
+            }
+            else{
+                break;
+            }
+        }
+    }
+    public RotateFixed getMouseDown(Vector2 mouseDownLocation){
+        BoxCollider2D currBoxCollider = lineGameObject.GetComponent<BoxCollider2D>();
+        if (currBoxCollider.OverlapPoint(mouseDownLocation)){
+            float slope = (endNode.y-startNode.y)/(endNode.x-startNode.x);
+            float newX = (mouseDownLocation.y - mouseDownLocation.x * -1f*(1f/slope) -startNode.y + startNode.x*slope)/(slope + 1f/slope);
+            //(startNode.y - mouseDownLocation.y + startNode.x * ((endNode.y-startNode.y)/(endNode.x-startNode.x)))*(-1f*(endNode.y-startNode.y)/(endNode.x-startNode.x));
+            float newY = (newX-startNode.x) * slope + startNode.y;
+            //DO I NEED percentageToNextNode?
+            
+            Vector2 pointOnLine = new Vector2(newX, newY);
+            /*Debug.Log("---");
+            Debug.Log(mouseDownLocation);
+            Debug.Log(slope);
+            Debug.Log("New x: " + newX);
+            Debug.Log("New Y" + newY);*/
+            return new RotateFixed(this, pointOnLine, Vector2.Distance(startNode, pointOnLine));
+        }
+        return null;
+    }
+
 }
 public class RotateFixed{
     public int startNode;
+    public MoveNode moveNode;
+    public Vector2 pointIntercepted;
     public float percentageToNextNode;
+    public float distanceToStart;
     public Command rotateCommand;
+    public RotateFixed(MoveNode moveNode, Vector2 pointIntercepted, float percentageToNextNode){
+        this.moveNode = moveNode;
+        this.pointIntercepted = pointIntercepted;
+        this.percentageToNextNode = percentageToNextNode;
+    }
     public RotateFixed(int startNode, float percentageToNextNode, Command rotateCommand){
         this.startNode = startNode;
         this.percentageToNextNode = percentageToNextNode;

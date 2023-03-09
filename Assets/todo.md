@@ -1,6 +1,3 @@
-Currently working on?
-
-
 Unit movement (done (kind of))
 Unit vision (done (kind of))
 
@@ -14,3 +11,11 @@ Pause stuff
 Fixate on point command?
 Cover stuff
 Nade actions
+
+
+RESIGN!
+
+Either take Ap exam, get shite done
+Email AT person, ask about AT CS
+????
+
